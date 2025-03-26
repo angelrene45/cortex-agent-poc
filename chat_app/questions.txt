@@ -1,0 +1,90 @@
+How many clients are there in North America?
+What are the top 10 products generating the highest total revenue?
+Who are the top 10 customers generating the highest total revenue?
+Which customers have placed the highest number of orders?
+
+
+
+What are the top 10 products generating the highest total revenue?
+Which suppliers are providing these products?
+
+
+-- Testing Cortex Search (Complex/Trickier Fuzzy Search Tests)
+
+Find all parts with a “soft” surface (Should return BRUSHED types)
+Which parts are best for corrosion resistance? (Should match ANODIZED and PLATED types).
+List parts that are "Promo anodized metal" (Should return PROMO ANODIZED STEEL, PROMO ANODIZED BRASS, etc.).
+
+Where might I find the fairest price for steel?
+
+
+- name: What are the top 10 products generating the highest total revenue?
+  question: What are the top 10 products generating the highest total revenue?
+  use_as_onboarding_question: true
+  sql: >
+    WITH __order_lineitems AS (
+        SELECT
+            l_partkey AS part_key,
+            l_suppkey AS supplier_key,
+            l_shipdate AS lineitem_ship_date,
+            l_extendedprice * (
+            1 - l_discount
+            ) AS net_revenue
+        FROM snowflake_sample_data.tpch_sf1.lineitem
+        ), __part_suppliers AS (
+        SELECT
+            ps_partkey AS part_key,
+            ps_suppkey AS supplier_key
+        FROM snowflake_sample_data.tpch_sf1.partsupp
+        ), __parts AS (
+        SELECT
+            p_partkey AS part_key,
+            p_name AS part_name
+        FROM snowflake_sample_data.tpch_sf1.part
+        ), product_revenue AS (
+        SELECT
+            p.part_key,
+            p.part_name,
+            MIN(ol.lineitem_ship_date) AS start_date,
+            MAX(ol.lineitem_ship_date) AS end_date,
+            SUM(ol.net_revenue) AS total_revenue
+        FROM __order_lineitems AS ol
+        LEFT OUTER JOIN __part_suppliers AS ps
+            ON ol.part_key = ps.part_key AND ol.supplier_key = ps.supplier_key
+        LEFT OUTER JOIN __parts AS p
+            ON ps.part_key = p.part_key
+        GROUP BY
+            p.part_key,
+            p.part_name
+        )
+    SELECT
+    part_name,
+    total_revenue
+    FROM product_revenue
+    ORDER BY
+    total_revenue DESC NULLS LAST
+    LIMIT 10
+
+- name: Client in North America
+  question: How many clients are there in North America?
+  use_as_onboarding_question: true
+  sql: >
+    WITH __customers AS (
+      SELECT
+        c_custkey   AS customer_key,
+        c_nationkey AS nation_key
+      FROM snowflake_sample_data.tpch_sf1.customer
+    ),
+    __nations AS (
+      SELECT
+        n_nationkey AS nation_key,
+        n_name      AS nation_name
+      FROM snowflake_sample_data.tpch_sf1.nation
+    )
+    SELECT
+      COUNT(DISTINCT c.customer_key) AS total_north_american_customers
+    FROM __customers AS c
+      LEFT OUTER JOIN __nations AS n
+        ON c.nation_key = n.nation_key
+    WHERE
+      n.nation_name IN ('UNITED STATES', 'CANADA')    
