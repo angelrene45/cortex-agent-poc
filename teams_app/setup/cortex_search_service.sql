@@ -2,8 +2,11 @@ USE DASH_DB.DASH_SCHEMA;
 USE WAREHOUSE DASH_S;
 
 create or replace table parse_pdfs as 
-select relative_path, SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@DASH_DB.DASH_SCHEMA.DASH_PDFS,relative_path,{'mode':'LAYOUT'}) as data
-    from directory(@DASH_DB.DASH_SCHEMA.DASH_PDFS);
+select 
+    relative_path, 
+    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@DASH_DB.DASH_SCHEMA.DASH_PDFS,relative_path,{'mode':'LAYOUT'}) as data
+from directory(@DASH_DB.DASH_SCHEMA.DASH_PDFS);
+
 
 create or replace table parsed_pdfs as (
     with tmp_parsed as (select

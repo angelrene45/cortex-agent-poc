@@ -4,23 +4,25 @@ import pandas as pd
 import requests
 import snowflake.connector
 
-HOST = "FRHSAXD-CFB18747.snowflakecomputing.com"
+HOST = "EQCNGGW-UUB67242.snowflakecomputing.com"
 API_ENDPOINT = "/api/v2/cortex/agent:run"
 API_TIMEOUT = 50000  # in milliseconds
 
-CORTEX_SEARCH_SERVICES = "sales_intelligence.data.sales_conversation_search"
-SEMANTIC_MODELS = "@sales_intelligence.data.models/sales_metrics_model.yaml"
+CORTEX_SEARCH_SERVICES = "DASH_DB.DASH_SCHEMA.VEHICLES_INFO"
+SEMANTIC_MODELS_SUPPLY_CHAIN = "@DASH_DB.DASH_SCHEMA.DASH_SEMANTIC_MODELS/supply_chain_semantic_model.yaml"
+SEMANTIC_MODELS_SUPPORT_TICKETS = "@DASH_DB.DASH_SCHEMA.DASH_SEMANTIC_MODELS/support_tickets_semantic_model.yaml"
+
 
 if 'CONN' not in st.session_state or st.session_state.CONN is None:
     st.session_state.CONN = snowflake.connector.connect(
-        user="ANGELCORTEX2025",
-        password="angelrehCortex1997",
-        account="XIB99769",
-        host=HOST,
-        port=443,
-        warehouse="COMPUTE_WH",
-        role="ACCOUNTADMIN",
-    )
+    user="ANGELCORTEX2025",
+    password="angelrehCortex1997",
+    account="EQCNGGW",
+    host=HOST,
+    port=443,
+    warehouse="COMPUTE_WH",
+    role="ACCOUNTADMIN",
+)
 
 
 def run_snowflake_query(query):
@@ -49,25 +51,18 @@ def snowflake_api_call(query: str, limit: int = 10):
             }
         ],
         "tools": [
-            {
-                "tool_spec": {
-                    "type": "cortex_analyst_text_to_sql",
-                    "name": "analyst1"
-                }
-            },
-            {
-                "tool_spec": {
-                    "type": "cortex_search",
-                    "name": "search1"
-                }
-            }
+            { "tool_spec": { "type": "cortex_analyst_text_to_sql", "name": "supply_chain" } },
+            { "tool_spec": { "type": "cortex_analyst_text_to_sql", "name": "support" } },
+            { "tool_spec": { "type": "cortex_search", "name": "vehicles_info_search" } }
         ],
         "tool_resources": {
-            "analyst1": {"semantic_model_file": SEMANTIC_MODELS},
-            "search1": {
+            "supply_chain": {"semantic_model_file": SEMANTIC_MODELS_SUPPLY_CHAIN},
+            "support": {"semantic_model_file": SEMANTIC_MODELS_SUPPORT_TICKETS},
+            "vehicles_info_search": {
                 "name": CORTEX_SEARCH_SERVICES,
                 "max_results": limit,
-                "id_column": "conversation_id"
+                "title_column": "title",
+                "id_column": "relative_path"
             }
         }
     }
@@ -88,21 +83,29 @@ def snowflake_api_call(query: str, limit: int = 10):
             st.error(f"Response details: {resp.text}")
             return None
         
-        import pprint
-        pprint.pprint(resp.content.decode("utf-8"))
-        
-        try:
-            response_content = resp.json()
-        except json.JSONDecodeError:
-            st.error("❌ Failed to parse API response. The server may have returned an invalid JSON format.")
-            st.error(f"Raw response: {resp.content[:200]}...")
-            return None
-            
-        return response_content
+        return resp
             
     except Exception as e:
         st.error(f"Error making request: {str(e)}")
         return None
+
+def parse_response_to_events(response):
+    """Parse raw SSE response into a list of events"""
+    events = []
+        
+    for line in response.iter_lines():
+        if line:
+            decoded = line.decode('utf-8')
+            
+            if decoded.startswith("data: "):
+                content = decoded.replace("data: ", "")
+                if content == "[DONE]":
+                    break
+
+                parsed = json.loads(content)
+                events.append(parsed)
+
+    return events
 
 def process_sse_response(response):
     """Process SSE response"""
@@ -116,9 +119,8 @@ def process_sse_response(response):
         return text, sql, citations
     try:
         for event in response:
-            if event.get('event') == "message.delta":
-                data = event.get('data', {})
-                delta = data.get('delta', {})
+            if event.get('object') == "message.delta":
+                delta = event.get('delta', {})
                 
                 for content_item in delta.get('content', []):
                     content_type = content_item.get('type')
@@ -130,21 +132,21 @@ def process_sse_response(response):
                                     text += result.get('json', {}).get('text', '')
                                     search_results = result.get('json', {}).get('searchResults', [])
                                     for search_result in search_results:
-                                        citations.append({'source_id':search_result.get('source_id',''), 'doc_id':search_result.get('doc_id', '')})
+                                        citations.append({'source_id':search_result.get('source_id',''), 'doc_id':search_result.get('doc_id', ''), 'text':search_result.get('text', '')})
                                     sql = result.get('json', {}).get('sql', '')
                     if content_type == 'text':
                         text += content_item.get('text', '')
                             
     except json.JSONDecodeError as e:
-        st.error(f"Error processing events: {str(e)}")
+        print(f"Error processing events: {str(e)}")
                 
     except Exception as e:
-        st.error(f"Error processing events: {str(e)}")
+        print(f"Error processing events: {str(e)}")
         
     return text, sql, citations
 
 def main():
-    st.title("Intelligent Sales Assistant")
+    st.title("Cortex Agent POC")
 
     # Sidebar for new chat
     with st.sidebar:
@@ -168,8 +170,9 @@ def main():
         
         # Get response from API
         with st.spinner("Processing your request..."):
-            response = snowflake_api_call(query, 1)
-            text, sql, citations = process_sse_response(response)
+            response = snowflake_api_call(query, limit=1)
+            events = parse_response_to_events(response)
+            text, sql, citations = process_sse_response(events)
             
             # Add assistant response to chat
             if text:
@@ -183,26 +186,20 @@ def main():
                         st.write("Citations:")
                         for citation in citations:
                             doc_id = citation.get("doc_id", "")
+                            transcript_text = citation.get("text", "")
                             if doc_id:
-                                query = f"SELECT transcript_text FROM sales_conversations WHERE conversation_id = '{doc_id}'"
-                                result = run_snowflake_query(query)
-                                result_df = result.to_pandas()
-                                if not result_df.empty:
-                                    transcript_text = result_df.iloc[0, 0]
-                                else:
-                                    transcript_text = "No transcript available"
-                    
-                                with st.expander(f"[{citation.get('source_id', '')}]"):
+                                with st.expander(f"[{citation.get('source_id', '')}] ({doc_id})"):
                                     st.write(transcript_text)
 
             # Display SQL if present
             if sql:
-                st.markdown("### Generated SQL")
-                st.code(sql, language="sql")
-                sales_results = run_snowflake_query(sql)
-                if sales_results:
-                    st.write("### Sales Metrics Report")
-                    st.dataframe(sales_results)
+                # st.markdown("### Generated SQL")
+                with st.expander("### Generated SQL"):
+                    st.code(sql, language="sql")
+                df_results = run_snowflake_query(sql)
+                if not df_results.empty:
+                    # st.write("### Results")
+                    st.dataframe(df_results)
 
 if __name__ == "__main__":
     main()
