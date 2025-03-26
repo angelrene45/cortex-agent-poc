@@ -1,0 +1,4 @@
+ipykernel==6.29.5
+streamlit==1.36.0
+snowflake-snowpark-python[pandas]
+pyjwt
