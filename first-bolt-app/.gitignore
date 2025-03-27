@@ -1,0 +1,11 @@
+.DS_Store
+rsa_key.p8
+rsa_key.pub
+.env
+__pycache__
+.venv/
+venv/bin/*
+venv/lib/*
+venv/include/*
+venv/share/*
+default.sqlite
