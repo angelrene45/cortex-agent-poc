@@ -27,17 +27,9 @@ tables:
 verified_queries:
   - name: "compare average shipping time snowtires vs others"
     question: "What's the average shipping time for tires from Snowtires Automotive compared to average of our other suppliers?"
-    sql: "
-select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name='Snowtires Automotive'
-union
-select 'Other Suppliers' AS supplier_vendor_name, avg(average_shipping_time) from (select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name <> 'Snowtires Automotive');    "
-
+    sql: "select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name='Snowtires Automotive' union select 'Other Suppliers' AS supplier_vendor_name, avg(average_shipping_time) from (select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name <> 'Snowtires Automotive');"
   - name: "compare average shipping time tirepro vs. others"
     question: "What's the average shipping time for tires from TirePro compared to average of our other suppliers?"
-    sql: "
-select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name='TirePro'
-union
-select 'Other Suppliers' AS supplier_vendor_name, avg(average_shipping_time) from (select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name <> 'TirePro');
-    "
+    sql: "select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name='TirePro' union select 'Other Suppliers' AS supplier_vendor_name, avg(average_shipping_time) from (select DISTINCT(supplier_vendor_name), average_shipping_time from DASH_DB.DASH_SCHEMA.SUPPLY_CHAIN where supplier_vendor_name <> 'TirePro');"
 
 custom_instructions: "Ensure that all numeric columns are rounded to 2 decimal points in the output."
