@@ -205,7 +205,7 @@ def display_agent_response(content,say):
                             "elements": [
                                 {
                                     "type": "text",
-                                    "text": f"* Citation: {content['citations']}",
+                                    "text": f"* Citation: {content['citations']}" if content['citations'] else " ",
                                     "style": {
                                         "italic": True
                                     }

@@ -9,6 +9,7 @@ Tracks the average shipping time for tire orders from different vendors.
 Purpose: Evaluate vendor performance, identify delays, and optimize supply chain efficiency.
 
 ### Questions 
+
 - What is the average shipping time for tires from Snowtires Automotive compared to average of our other suppliers?
 
 
@@ -37,7 +38,7 @@ The goal is to understand customer issues, track support trends, and enhance ser
 ## PARSED_PDFS (Vendor Document Text)
 Stores extracted text from PDF documents like contracts and recycling policies from vendors.
 
-Purpose: Enable intelligent search (via tools like Cortex Search) for contract clauses, ESG terms, and recycling policies using natural language.
+Purpose: Search contract clauses, recycling policies using natural language.
 
 
 ### Questions 
